@@ -87,7 +87,7 @@ int clearRemote(struct _xmlAttr *attr) {
 	char cur_path[CMD_LEN];
 	int res;
 	memset(cur_path, 0, CMD_LEN);
-	
+	getcwd(cur_path, CMD_LEN);
 	path = getprop(attr,"path");
 	if(path !=NULL) {
 		if((res=chdir(path))!=0) {
