@@ -1,0 +1,5 @@
+This tool is used to init repo at server and push code at client
+
+1. Make sure libxml2 already installed before compiled
+2. "git-tool --init <xml file>" is used at server to init all git in xml file
+3. "git-tool --push <remote> <xml file>" is used to push code to a exist repo server at client
