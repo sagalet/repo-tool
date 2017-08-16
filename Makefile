@@ -10,7 +10,7 @@ SRC_FILE := main.c
 
 all: $(OUT_FILE)
 
-$(OUT_FILE): $(OUT)
+$(OUT_FILE): $(OUT) $(SRC_FILE)
 	$(CC) -I$(LIBXML_H) -L$(LIBXML_SO) -o $(OUT_FILE) $(SRC_FILE) $(CFLAGS)
 
 $(OUT):

@@ -9,10 +9,18 @@
 #define INIT 0
 #define PUSH 1
 #define CLEAR 2
+#define MIRROR 3
 #define LENGTH 50
 #define CMD_LEN 256
 
-const char *remote;
+struct _mMirror {
+	const char *name;
+	const char *fetch;
+};
+
+const char *mRemote;
+struct _mMirror mMirror[10];
+int mMirror_num;
 
 const char* getprop(struct _xmlAttr *attr, char *prop) {
 	while(attr != NULL) {
@@ -65,7 +73,7 @@ int pushGit(struct _xmlAttr *attr) {
 		}
 
 		memset(buf, 0, CMD_LEN);
-		sprintf(buf,"git remote add orig %s/%s", remote, name);
+		sprintf(buf,"git remote add orig %s/%s", mRemote, name);
 		if((res = system(buf))!=0) {
 			printf("git add remote failed(%s)\n", name);
 			goto out1;
@@ -106,6 +114,54 @@ int clearRemote(struct _xmlAttr *attr) {
 	return res;
 }
 
+int cloneGit(struct _xmlAttr *attr) {
+	const char *name = NULL;
+	const char *path = NULL;
+	const char *remote = NULL;
+	const char *fetch = NULL;
+	int i, res;
+	char buf[CMD_LEN];
+
+	remote = getprop(attr, "remote");
+	if(remote==NULL) {
+		printf("no prop \"remote\" , skip\n");
+		return -1;
+	}
+
+	for(i=0; i<mMirror_num; i++) {
+		if(strcmp(mMirror[i].name, remote)==0) {
+			fetch = mMirror[i].fetch;
+		}
+	}
+
+	if(fetch==NULL)	 {
+		printf("No remote found (%s)\n",remote);
+		return -1;
+	}
+
+	name = getprop(attr, "name");
+	path = getprop(attr, "path");
+
+	sprintf(buf,"git clone --shared %s/%s %s --mirror", fetch, name, path);
+	if( (res=system(buf))!=0) {
+		printf("git clone failed\n");
+	}
+	return res;
+}
+
+void addMirror(struct _xmlAttr *attr) {
+	const char* name = NULL;
+	const char* fetch = NULL;
+
+	name = getprop(attr,"name");
+	fetch = getprop(attr,"fetch");
+	if(name!=NULL && fetch!=NULL) {
+		mMirror[mMirror_num].name = name;
+		mMirror[mMirror_num].fetch = fetch;
+		mMirror_num++;
+	}
+}
+
 int parseXml(char *file,int action) {
 	xmlDocPtr doc;
 	xmlNodePtr cur;
@@ -125,6 +181,10 @@ int parseXml(char *file,int action) {
 
 	cur = cur->children;
 	while(cur) {
+		if(action==MIRROR && strcmp(cur->name,"remote")==0) {
+			struct _xmlAttr *attr = cur->properties;
+			addMirror(attr);
+		}
 		if(strcmp(cur->name,"project")==0) {
 			struct _xmlAttr *attr = cur->properties;
 			if(attr!=NULL) {
@@ -137,6 +197,9 @@ int parseXml(char *file,int action) {
 						break;
 					case CLEAR:
 						clearRemote(attr);
+						break;
+					case MIRROR:
+						cloneGit(attr);
 						break;
 				}
 			}
@@ -155,6 +218,8 @@ void printUsage(char *name) {
 	printf("\toption :\n");
 	printf("\t\t--init : execute \"git init\" at server\n");
 	printf("\t\t--push <remote> : execute \"git push\" at client\n");
+	printf("\t\t--clear : remove remote in each git\n");
+	printf("\t\t--mirror : create mirror at server from remote git\n");
 }
 
 void main(int argc, char** argv) {
@@ -177,10 +242,13 @@ void main(int argc, char** argv) {
 			return;
 		}
 		action = PUSH;
-		remote = argv[2];
+		mRemote = argv[2];
 		i=3;
 	}else if(strcmp(argv[1],"--clear")==0) {
 		action = CLEAR;
+		i=2;
+	}else if(strcmp(argv[1],"--mirror")==0) {
+		action = MIRROR;
 		i=2;
 	}else {
 		printUsage(argv[0]);
